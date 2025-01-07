@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Make website responsive -->
+    <title>Stock Tracker</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;700&display=swap" rel="stylesheet"> <!-- Roboto font -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> <!-- Chart.js library for stock charts -->
+    <style>
+        body {
+            font-family: "Roboto", sans-serif; /* Use Roboto font */
+            margin: 0; /* Remove default margin */
+            padding: 0; /* Remove default padding */
+            background: #141414; /* Set background color */
+            color: #fff; /* Set text color */
+            text-align: center; /* Center-align text */
+        }
+
+        h1 {
+            margin-top: 20px; /* Add margin to the top */
+            color: #ff6600; /* Set text color */
+        }
+
+        .container {
+            width: 90%; /* Set container width */
+            max-width: 1200px; /* Set maximum width */
+            margin: auto; /* Center the container */
+        }
+
+        .ticker {
+            background: #000; /* Set background color */
+            overflow: hidden; /* Hide overflow content */
+            white-space: nowrap; /* Prevent text from wrapping */
+            position: relative; /* Set position to relative */
+            margin: 20px 0; /* Add margin to top and bottom */
+            padding: 10px 0; /* Add padding to top and bottom */
+            border-top: 2px solid #ff6600; /* Add top border */
+            border-bottom: 2px solid #ff6600; /* Add bottom border */
+        }
+
+        .ticker-content {
+            display: inline-block; /* Display as inline-block */
+            animation: ticker-scroll 20s linear infinite; /* Add scrolling animation */
+        }
+
+        .ticker span {
+            margin: 0 20px; /* Add margin to left and right */
+            font-size: 1.1rem; /* Set font size */
+        }
+
+        .up {
+            color: #0f0; /* Set text color for up direction */
+        }
+
+        .down {
+            color: #f00; /* Set text color for down direction */
+        }
+
+        @keyframes ticker-scroll {
+            from { transform: translateX(100%); } /* Start position */
+            to { transform: translateX(-100%); } /* End position */
+        }
+
+        table, button, canvas, select {
+            margin-top: 20px; /* Add margin to the top */
+        }
+
+        button {
+            padding: 5px 10px; /* Add padding */
+            background: #ff6600; /* Set background color */
+            border: none; /* Remove border */
+            color: #fff; /* Set text color */
+            border-radius: 5px; /* Add border radius */
+            cursor: pointer; /* Change cursor to pointer */
+        }
+
+        button:hover {
+            background: #e65c00; /* Change background color on hover */
+        }
+
+        table {
+            width: 100%; /* Set table width */
+            border-collapse: collapse; /* Collapse borders */
+        }
+
+        th, td {
+            padding: 12px; /* Add padding */
+            text-align: center; /* Center-align text */
+            border: 1px solid #444; /* Add border */
+        }
+
+        th {
+            background: #333; /* Set background color */
+        }
+
+        tr:nth-child(even) {
+            background-color: #222; /* Set background color for even rows */
+        }
+
+        #stock-chart {
+            max-width: 100%; /* Set maximum width */
+            height: 400px; /* Set height */
+            background: #222; /* Set background color */
+            border-radius: 8px; /* Add border radius */
+            margin-top: 20px; /* Add margin to the top */
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4); /* Add box shadow */
+        }
+
+        .timeframe-container {
+            margin-top: 10px; /* Add margin to the top */
+        }
+
+        select {
+            background: #333; /* Set background color */
+            color: #fff; /* Set text color */
+            padding: 10px; /* Add padding */
+            border: none; /* Remove border */
+            border-radius: 5px; /* Add border radius */
+            margin-top: 10px; /* Add margin to the top */
+        }
+
+        select:focus {
+            outline: none; /* Remove outline */
+            border-color: #ff6600; /* Set border color on focus */
+        }
+    </style>
+</head>
+<body>
+    <h1>Stock Tracker</h1> <!-- Main heading -->
+
+    <!-- Ticker Section -->
+    <div class="ticker">
+        <div id="ticker-content" class="ticker-content"></div> <!-- Ticker content will be dynamically updated -->
+    </div>
+
+    <!-- Stock Section -->
+    <div class="container">
+        <form id="stock-form">
+            <input type="text" id="symbol" placeholder="Enter Stock Symbol" required> <!-- Input for stock symbol -->
+            <button type="submit">Add Stock</button> <!-- Submit button -->
+        </form>
+
+        <table id="stock-table">
+            <thead>
+                <tr>
+                    <th>Symbol</th>
+                    <th>Price</th>
+                    <th>Chart</th>
+                </tr>
+            </thead>
+            <tbody></tbody> <!-- Table body will be dynamically updated -->
+        </table>
+
+        <canvas id="stock-chart"></canvas> <!-- Canvas for rendering the stock chart -->
+        <div class="timeframe-container">
+            <select id="timeframe">
+                <option value="1d">1 Day</option>
+                <option value="5d">5 Days</option>
+                <option value="1mo">1 Month</option>
+                <option value="3mo">3 Months</option>
+                <option value="1y">1 Year</option>
+                <option value="5y">5 Years</option>
+            </select>
+        </div>
+    </div>
+
+    <script>
+        const tickerContent = document.getElementById("ticker-content"); // Get the ticker content element
+        const stockForm = document.getElementById("stock-form"); // Get the stock form element
+        const stockTableBody = document.querySelector("#stock-table tbody"); // Get the stock table body element
+        const stockChart = document.getElementById("stock-chart"); // Get the stock chart canvas element
+        const timeframeSelector = document.getElementById("timeframe"); // Get the timeframe selector element
+        let chart; // Variable to store the chart instance
+        let currentSymbol = null; // Variable to store the current stock symbol
+
+        // Fetch and Display Ticker Content
+        async function fetchTicker() { // Asynchronous to not block the main thread
+            const response = await fetch("/get_notable"); // Send a GET request to the /get_notable endpoint
+            const stocks = await response.json(); // Parse the JSON response
+            tickerContent.innerHTML = stocks.map(stock => {
+                const color = stock.direction === "up" ? "up" : "down"; // Determine the color based on the direction
+                return `<span class="${color}">${stock.symbol}: $${stock.price} ${stock.direction === "up" ? "▲" : "▼"} ${stock.percentage}</span>`; // Format the ticker content
+            }).join(""); // Join the array into a single string
+        }
+
+        fetchTicker(); // Fetch the ticker content when the page loads
+        setInterval(fetchTicker, 20000);  // Update every 20 seconds
+
+        stockForm.addEventListener("submit", async (e) => {
+            e.preventDefault(); // Prevent the default form submission
+            const symbol = document.getElementById("symbol").value.trim().toUpperCase(); // Get the stock symbol from the input
+            const res = await fetch("/get_price", {
+                method: "POST", // Send a POST request
+                headers: {"Content-Type": "application/x-www-form-urlencoded"}, // Set the content type
+                body: `symbol=${symbol}` // Set the request body
+            });
+            const data = await res.json(); // Parse the JSON response
+            if (res.ok) {
+                const row = `<tr>
+                    <td>${symbol}</td>
+                    <td>${data.price}</td>
+                    <td><button type="button" onclick="showChart('${symbol}')">View Chart</button></td>
+                </tr>`; // Format the table row
+                stockTableBody.insertAdjacentHTML("beforeend", row); // Insert the row into the table body
+            } else {
+                alert(data.error || "Error fetching price"); // Show an error message if the request failed
+            }
+        });
+
+        async function showChart(symbol) {
+            currentSymbol = symbol; // Set the current symbol
+            const timeframe = timeframeSelector.value; // Get the selected timeframe
+            const res = await fetch("/get_chart", {
+                method: "POST", // Send a POST request
+                headers: {"Content-Type": "application/x-www-form-urlencoded"}, // Set the content type
+                body: `symbol=${symbol}&timeframe=${timeframe}` // Set the request body
+            });
+            const data = await res.json(); // Parse the JSON response
+
+            if (res.ok) {
+                const labels = data.map(item => item.date); // Get the dates for the chart labels
+                const prices = data.map(item => item.close); // Get the closing prices for the chart data
+
+                if (chart) {
+                    chart.destroy();  // Remove the current chart if it exists
+                }
+
+                chart = new Chart(stockChart, {
+                    type: "line", // Set the chart type to line
+                    data: {
+                        labels: labels, // Set the chart labels
+                        datasets: [{
+                            label: `${symbol} Stock Price`, // Set the dataset label
+                            data: prices, // Set the dataset data
+                            borderColor: "#ff6600", // Set the line color
+                            backgroundColor: "rgba(255, 102, 0, 0.2)", // Set the fill color
+                            fill: true, // Enable fill
+                            borderWidth: 2, // Set the line width
+                        }]
+                    },
+                    options: {
+                        responsive: true, // Make the chart responsive
+                        plugins: {
+                            tooltip: {
+                                enabled: true, // Enable tooltips
+                                mode: 'index', // Set the tooltip mode to index
+                                intersect: false, // Disable intersect
+                                callbacks: {
+                                    label: function(tooltipItem) {
+                                        return `$${tooltipItem.raw.toFixed(2)}`; // Format the tooltip label
+                                    },
+                                    title: function(tooltipItem) {
+                                        return tooltipItem[0]?.label || ""; // Format the tooltip title
+                                    }
+                                }
+                            }
+                        },
+                        scales: {
+                            x: {
+                                title: {
+                                    display: true, // Display the x-axis title
+                                    text: "Date", // Set the x-axis title text
+                                    color: "#ff6600" // Set the x-axis title color
+                                },
+                                grid: {
+                                    color: '#444' // Set the x-axis grid color
+                                }
+                            },
+                            y: {
+                                title: {
+                                    display: true, // Display the y-axis title
+                                    text: "Price (USD)", // Set the y-axis title text
+                                    color: "#ff6600" // Set the y-axis title color
+                                },
+                                ticks: {
+                                    beginAtZero: false, // Do not begin the y-axis at zero
+                                    callback: function(value) { return "$" + value.toFixed(2); } // Format the y-axis ticks
+                                },
+                                grid: {
+                                    color: '#444' // Set the y-axis grid color
+                                }
+                            }
+                        },
+                        elements: {
+                            point: {
+                                radius: 0 // Set the point radius to zero
+                            }
+                        }
+                    }
+                });
+            } else {
+                alert(data.error || "Error fetching chart data"); // Show an error message if the request failed
+            }
+        }
+
+        // Update chart when timeframe is changed
+        timeframeSelector.addEventListener("change", async () => {
+            if (currentSymbol) {
+                showChart(currentSymbol);  // Re-fetch chart with new timeframe
+            }
+        });
+    </script>
+</body>
+</html>
