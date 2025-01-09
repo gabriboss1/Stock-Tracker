@@ -16,8 +16,8 @@ def get_stock_price(symbol):
     except Exception as e:  # Catch exceptions
         print(f"Error fetching stock price: {e}")  # Print error
         return None, None  # Return None if error occurs 
-# Get the price change over the last 5 days
 
+# Get the price change over the last 5 days
 def get_stock_change(symbol):
     try:
         stock = yf.Ticker(symbol)  # Ticker for the given symbol
