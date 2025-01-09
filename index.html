@@ -244,7 +244,7 @@
                     const percentageChange = ((newPrice - openingPrice) / openingPrice) * 100; // Calculate the percentage change
 
                     priceElement.textContent = data.price; // Update the price element
-                    percentageElement.textContent = `${percentageChange.toFixed(2)}%`; // Update the percentage element
+                    percentageElement.textContent = `${percentageChange.toFixed(2)}%`; // Update the percentage (2 decimal places)
 
                     if (newPrice > openingPrice) {
                         priceElement.style.color = "green"; // Set color to green if price increased
@@ -377,7 +377,7 @@
                 });
             } else {
                 alert(data.error || "Error fetching chart data"); // Show an error message if the request failed
-            }
+            }z
         }
 
         // Update chart when timeframe is changed
